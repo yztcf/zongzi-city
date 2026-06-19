@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>粽趣城市 - 端午桌遊</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(135deg, #8FD14F 0%, #FFE55C 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .game-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .game-title {
+            font-size: 3em;
+            color: #2E7D32;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            grid-template-rows: repeat(9, 1fr);
+            gap: 5px;
+            background: #D4A574;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            position: relative;
+            min-height: 600px; /* Ensure board has a minimum height */
+        }
+
+        .board-cell {
+            background: #FFF8DC;
+            border: 2px solid #8B4513;
+            border-radius: 8px;
+            padding: 10px;
+            min-height: 80px; /* Ensure cells have a minimum height */
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            text-align: center; /* Center text in cells */
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .board-cell:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .start-cell {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .property-cell {
+            background: #E8F5E9;
+        }
+
+        .property-cell.sweet {
+            background: #FCE4EC;
+        }
+
+        .property-cell.salty {
+            background: #FFF3E0;
+        }
+
+        .property-cell.mixed {
+            background: #E8F5E9;
+        }
+
+        .property-cell.premium {
+            background: linear-gradient(135deg, #E1BEE7, #CE93D8);
+        }
+
+        .special-cell {
+            background: #B3E5FC;
+        }
+
+        .fortune-cell {
+            background: #FFCCBC;
+        }
+
+        .spin-cell {
+            grid-column: 4 / 7;
+            grid-row: 4 / 7;
+            background: radial-gradient(circle, #FFD700, #FFA500);
+            font-size: 1.5em;
+            font-weight: bold;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            display: flex; /* Ensure content is centered */
+            align-items: center; /* Ensure content is centered */
+            justify-content: center; /* Ensure content is centered */
+        }
+
+        .spin-wheel {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(
+                from 0deg,
+                #FF6B6B 0deg 60deg,
+                #4ECDC4 60deg 120deg,
+                #FFE66D 120deg 180deg,
+                #A8E6CF 180deg 240deg,
+                #FF8B94 240deg 300deg,
+                #C7CEEA 300deg 360deg
+            );
+            transition: transform 3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .player-piece {
+            position: absolute;
+            width: 25px; /* Slightly smaller for better fit */
+            height: 25px; /* Slightly smaller for better fit */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1em; /* Adjusted for smaller size */
+            z-index: 10;
+            transition: all 0.5s ease;
+            border: 1px solid rgba(0,0,0,0.2); /* Add a slight border for definition */
+        }
+
+        .player1 { background: #FF6B6B; color: white; }
+        .player2 { background: #4ECDC4; color: white; }
+        .player3 { background: #FFE66D; color: #333; }
+        .player4 { background: #A8E6CF; color: #333; }
+        .player5 { background: #FF8B94; color: white; }
+        .player6 { background: #C7CEEA; color: #333; }
+
+        .game-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+        }
+
+        .dice-container {
+            display: flex;
+            align-items: center;
+            gap: 15px; /* Reduced gap */
+            margin-bottom: 10px; /* Add margin for wrapped layout */
+        }
+
+        .dice {
+            width: 50px; /* Slightly smaller */
+            height: 50px; /* Slightly smaller */
+            background: white;
+            border: 2px solid #333;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8em; /* Adjusted for smaller size */
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .dice:hover {
+            transform: scale(1.1);
+        }
+
+        .dice.rolling {
+            animation: roll 0.5s ease-in-out;
+        }
+
+        @keyframes roll {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.2); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 1em; /* Adjusted for consistency */
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        }
+
+        .btn:hover {
+            background: #45a049;
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+         .btn:active {
+            transform: scale(0.98);
+        }
+
+        .player-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Adjusted minmax */
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .player-card {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .player-card.active {
+            border-color: #4CAF50;
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .player-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .player-stats {
+            font-size: 0.9em;
+            color: #555; /* Slightly darker for better readability */
+        }
+
+        .fortune-card, .message-box, .confirm-dialog { /* Consolidated styles */
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.7); /* Start smaller */
+            background: white;
+            border: 3px solid #FFA500;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            z-index: 1000; /* Ensure it's on top */
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Bouncy effect */
+            max-width: 400px;
+            width: 90%; /* Responsive width */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            opacity: 0; /* Start hidden */
+            visibility: hidden; /* Start hidden */
+        }
+
+        .fortune-card.show, .message-box.show, .confirm-dialog.show { /* Consolidated show styles */
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .fortune-title {
+            font-size: 1.5em;
+            color: #FF6B6B;
+            margin-bottom: 15px;
+        }
+
+        .fortune-text, .message-text, .confirm-text { /* Consolidated text styles */
+            font-size: 1.1em;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6); /* Darker overlay */
+            z-index: 999; /* Below modals */
+            opacity: 0; /* Start hidden */
+            visibility: hidden; /* Start hidden */
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .character-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Responsive columns */
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .character-option {
+            background: white;
+            border: 3px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .character-option:hover {
+            border-color: #4CAF50;
+            transform: translateY(-5px) scale(1.03); /* More pronounced hover */
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .character-option.selected {
+            background: #4CAF50 !important; /* Ensure override */
+            border-color: #2E7D32 !important; /* Ensure override */
+            color: white !important; /* Ensure override */
+            transform: translateY(-5px) scale(1.03);
+            box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
+        }
+
+        .character-option.selected .character-name,
+        .character-option.selected .character-skill {
+            color: white !important; /* Ensure override */
+        }
+
+        .character-icon {
+            font-size: 2.5em; /* Larger icon */
+            margin-bottom: 10px;
+        }
+
+        .character-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .character-skill {
+            font-size: 0.8em;
+            color: #666;
+            min-height: 2.4em; /* Ensure consistent height for skill text */
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .game-title {
+                font-size: 2.2em;
+            }
+            .game-board {
+                min-height: 450px; /* Adjust board height for smaller screens */
+                gap: 3px;
+                padding: 10px;
+            }
+            .board-cell {
+                min-height: 60px;
+                padding: 5px;
+                font-size: 0.7em;
+            }
+            .board-cell div[style*="font-size: 1.5em;"] { /* Target icon div */
+                font-size: 1.2em !important;
+            }
+             .board-cell div[style*="font-size: 0.8em;"] { /* Target name div */
+                font-size: 0.65em !important;
+            }
+            .board-cell div[style*="font-size: 0.7em;"] { /* Target price div */
+                font-size: 0.6em !important;
+            }
+            .player-piece {
+                width: 20px;
+                height: 20px;
+                font-size: 0.8em;
+            }
+            .spin-cell {
+                font-size: 1em;
+            }
+            .dice {
+                width: 45px;
+                height: 45px;
+                font-size: 1.5em;
+            }
+            .btn {
+                font-size: 0.9em;
+                padding: 8px 15px;
+            }
+            .player-info {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+            .fortune-card, .message-box, .confirm-dialog {
+                padding: 20px;
+            }
+            .fortune-title {
+                font-size: 1.3em;
+            }
+            .fortune-text, .message-text, .confirm-text {
+                font-size: 1em;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .game-container {
+                padding: 15px;
+            }
+            .game-title {
+                font-size: 1.8em;
+            }
+            .game-board {
+                 min-height: auto; /* Allow it to shrink more */
+                 grid-template-columns: repeat(9, minmax(30px, 1fr)); /* Ensure columns don't get too small */
+                 grid-template-rows: repeat(9, minmax(30px, 1fr));
+            }
+             .board-cell {
+                min-height: 40px; /* Further reduce cell height */
+                font-size: 0.6em;
+            }
+            .character-selection {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            }
+             .character-icon {
+                font-size: 2em;
+            }
+            .game-controls {
+                flex-direction: column;
+                align-items: stretch; /* Make buttons full width */
+            }
+            .dice-container {
+                justify-content: center; /* Center dice and button */
+                width: 100%;
+            }
+            .game-controls > div:last-child { /* Target reset button container */
+                margin-top: 10px;
+                display: flex;
+                justify-content: center;
+            }
+            .game-controls .btn {
+                width: auto; /* Allow button to size to content or be styled */
+                flex-grow: 1; /* Allow roll button to grow if needed */
+            }
+             #resetBtn {
+                width: 60%; /* Make reset button not full width */
+                margin: 0 auto;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1 class="game-title">🎲 粽趣城市 🏙️</h1>
+            <p>端午節主題大富翁桌遊</p>
+        </div>
+
+        <div id="characterSelect">
+            <h2 style="text-align: center; margin-bottom: 20px;">選擇你的粽子角色 (至少2位)</h2>
+            <div class="character-selection">
+                <div class="character-option" data-character="sugar" onclick="toggleCharacterSelection(this)">
+                    <div class="character-icon">🍬</div>
+                    <div class="character-name">糖心粽</div>
+                    <div class="character-skill">【甜轉再來】轉盤可轉兩次擇一</div>
+                </div>
+                <div class="character-option" data-character="egg" onclick="toggleCharacterSelection(this)">
+                    <div class="character-icon">🥚</div>
+                    <div class="character-name">鹹蛋粽</div>
+                    <div class="character-skill">【快速升級】建屋減10金幣</div> </div>
+                <div class="character-option" data-character="black" onclick="toggleCharacterSelection(this)">
+                    <div class="character-icon">⚫</div>
+                    <div class="character-name">黑米粽</div>
+                    <div class="character-skill">【收租加成】別人經過多付5金幣</div> </div>
+                <div class="character-option" data-character="green" onclick="toggleCharacterSelection(this)">
+                    <div class="character-icon">🟢</div>
+                    <div class="character-name">綠豆粽</div>
+                    <div class="character-skill">【雙抽幸運】粽運卡抽兩張擇一</div>
+                </div>
+                <div class="character-option" data-character="taro" onclick="toggleCharacterSelection(this)">
+                    <div class="character-icon">🟣</div>
+                    <div class="character-name">芋香粽</div>
+                    <div class="character-skill">【一次免災】免疫一次負面事件</div>
+                </div>
+                <div class="character-option" data-character="mixed" onclick="toggleCharacterSelection(this)">
+                    <div class="character-icon">🎨</div>
+                    <div class="character-name">雙拼粽</div>
+                    <div class="character-skill">【交換人生】可交換任意卡/地產</div>
+                </div>
+            </div>
+            <button class="btn" id="startBtn" style="display: block; margin: 20px auto;" onclick="startGame()">開始遊戲</button>
+        </div>
+
+        <div id="gameArea" style="display: none;"> <div class="player-info" id="playerInfo"></div>
+
+            <div class="game-board" id="board">
+                </div>
+
+            <div class="game-controls">
+                <div class="dice-container">
+                    <div class="dice" id="dice" onclick="rollDice()" title="點擊擲骰">🎲</div>
+                    <button class="btn" id="rollBtn" onclick="rollDice()">擲骰子</button>
+                </div>
+                <div>
+                    <button class="btn" id="endTurnBtn" onclick="nextTurn()" style="display:none;">結束回合</button>
+                    <button class="btn" id="resetBtn" onclick="confirmResetGame()">重新開始</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="overlay" id="overlay"></div>
+
+        <div class="fortune-card" id="fortuneCardModal">
+            <h3 class="fortune-title" id="fortuneTitle"></h3>
+            <p class="fortune-text" id="fortuneText"></p>
+            <button class="btn" id="fortuneBtn" onclick="closeModal('fortuneCardModal')">確定</button>
+        </div>
+
+        <div class="message-box" id="messageBoxModal">
+            <p class="message-text" id="messageText"></p>
+            <button class="btn" onclick="closeModal('messageBoxModal')">知道了</button>
+        </div>
+
+        <div class="confirm-dialog" id="confirmDialogModal">
+            <p class="confirm-text" id="confirmText"></p>
+            <div class="confirm-buttons">
+                <button class="btn" id="confirmYesBtn">確定</button>
+                <button class="btn" id="confirmNoBtn" style="background-color: #f44336;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game State
+        let gameState = {
+            players: [],
+            currentPlayerIndex: 0,
+            boardCells: [], // Will store cell DOM elements
+            gameRunning: false,
+            diceRolledThisTurn: false,
+            playerImmunity: {} // Stores immunity status for players e.g. {0: true} for player 0
+        };
+
+        // Fortune Cards Data
+        const fortuneCards = [
+            { title: "誤闖蒸籠", text: "哎呀！不小心掉進熱呼呼的蒸籠裡，暫停一回合好好休息。", effect: (player) => { player.skipTurn = true; }, type: "negative" },
+            { title: "街邊粽子節", text: "太幸運了！遇到街邊粽子節慶祝活動，獲得100金幣獎勵！", effect: (player) => { player.money += 100; }, type: "positive" },
+            { title: "被辣粽偷襲！", text: "可惡！一個超辣的粽子突然出現，害你損失50金幣看醫生。", effect: (player) => { player.money -= 50; checkBankrupt(player); }, type: "negative" },
+            { title: "粽界偶像徵選", text: "恭喜！你在粽界偶像徵選中脫穎而出，人氣爆棚，前進3格！", effect: (player) => { movePlayerSteps(3, false); }, type: "positive" },
+            { title: "遇見粽仙", text: "奇遇！神秘的粽仙現身，賜予你200金幣的祝福！", effect: (player) => { player.money += 200; }, type: "positive" },
+            { title: "祖傳香包護體", text: "幸運符！你發現一個祖傳香包，下次可免疫一次負面事件。", effect: (player) => { gameState.playerImmunity[player.id] = true; }, type: "positive" },
+            { title: "家廟春祭建醮日", text: "大日子！家廟舉辦春祭建醮，所有其他玩家都要給你30金幣紅包！", effect: (player) => { gameState.players.forEach(p => { if (p.id !== player.id) { p.money -= 30; player.money += 30; checkBankrupt(p);} }); }, type: "positive" },
+            { title: "龍船水濺災星降", text: "真倒楣！被龍舟競賽濺起的水花淋濕，衰神附體，後退2格。", effect: (player) => { movePlayerSteps(-2, false); }, type: "negative" }
+        ];
+
+        // Board Layout Definition
+        const boardLayout = [
+            { name: "起點", type: "start", icon: "🚩" },
+            { name: "甜粽社區", type: "property", flavor: "sweet", price: 60, rent: 6, icon: "🏠" },
+            { name: "粽運卡", type: "fortune", icon: "🎴" },
+            { name: "紅棗街", type: "property", flavor: "sweet", price: 80, rent: 8, icon: "🏠" },
+            { name: "材料補給站", type: "special", action: "gainMoney", amount: 50, icon: "📦" },
+            { name: "鹹粽大道", type: "property", flavor: "salty", price: 100, rent: 10, icon: "🏠" },
+            { name: "轉盤", type: "spin", icon: "🎰" }, // Placeholder for spin functionality
+            { name: "蛋黃路", type: "property", flavor: "salty", price: 120, rent: 12, icon: "🏠" },
+            { name: "涼亭休息區", type: "special", action: "rest", icon: "🏛️" },
+            { name: "粽運卡", type: "fortune", icon: "🎴" },
+            { name: "粽香中街", type: "property", flavor: "mixed", price: 140, rent: 14, icon: "🏠" },
+            { name: "綜合廣場", type: "property", flavor: "mixed", price: 160, rent: 16, icon: "🏠" },
+            { name: "粽子市集", type: "special", action: "gainMoney", amount: 150, icon: "🏪" },
+            { name: "粽運卡", type: "fortune", icon: "🎴" },
+            { name: "粽王商圈", type: "property", flavor: "premium", price: 200, rent: 20, icon: "🏰" },
+            { name: "建築稅", type: "special", action: "payTax", amountPerProperty: 10, icon: "💰" },
+            { name: "黃金路", type: "property", flavor: "premium", price: 220, rent: 22, icon: "🏰" },
+            { name: "轉盤", type: "spin", icon: "🎰" },
+            { name: "粽運卡", type: "fortune", icon: "🎴" },
+            { name: "豆沙巷", type: "property", flavor: "sweet", price: 240, rent: 24, icon: "🏠" },
+            { name: "五香街", type: "property", flavor: "salty", price: 260, rent: 26, icon: "🏠" },
+            { name: "材料補給站", type: "special", action: "gainMoney", amount: 70, icon: "📦" },
+            { name: "芋泥路", type: "property", flavor: "mixed", price: 280, rent: 28, icon: "🏠" },
+            { name: "粽運卡", type: "fortune", icon: "🎴" },
+            { name: "皇家大道", type: "property", flavor: "premium", price: 300, rent: 30, icon: "🏰" },
+            { name: "轉盤", type: "spin", icon: "🎰" },
+            { name: "粽運卡", type: "fortune", icon: "🎴" },
+            { name: "端午廣場", type: "property", flavor: "premium", price: 350, rent: 35, icon: "🏰" }
+        ];
+
+        const characterData = {
+            sugar: { name: '糖心粽', icon: '🍬', color: 'player1', skill: 'sweetSpin', skillDesc: "【甜轉再來】轉盤可轉兩次擇一" },
+            egg: { name: '鹹蛋粽', icon: '🥚', color: 'player2', skill: 'quickUpgrade', skillDesc: "【快速升級】建屋費用減10金幣" },
+            black: { name: '黑米粽', icon: '⚫', color: 'player3', skill: 'rentBoost', skillDesc: "【收租加成】其他玩家停留你的地產時多付5金幣" },
+            green: { name: '綠豆粽', icon: '🟢', color: 'player4', skill: 'doubleFortune', skillDesc: "【雙抽幸運】粽運卡抽兩張擇一" },
+            taro: { name: '芋香粽', icon: '🟣', color: 'player5', skill: 'oneTimeImmunity', skillDesc: "【一次免災】遊戲開始時獲得一次負面事件免疫" },
+            mixed: { name: '雙拼粽', icon: '🎨', color: 'player6', skill: 'swapLife', skillDesc: "【交換人生】一次機會，可與任一玩家交換一張隨機地產 (若對方有)" } // Skill needs careful implementation
+        };
+
+        // DOM Elements
+        const characterSelectDiv = document.getElementById('characterSelect');
+        const gameAreaDiv = document.getElementById('gameArea');
+        const boardDiv = document.getElementById('board');
+        const playerInfoDiv = document.getElementById('playerInfo');
+        const diceDiv = document.getElementById('dice');
+        const rollBtn = document.getElementById('rollBtn');
+        const endTurnBtn = document.getElementById('endTurnBtn');
+        const overlay = document.getElementById('overlay');
+
+        // Modal Elements
+        const fortuneCardModal = document.getElementById('fortuneCardModal');
+        const fortuneTitleEl = document.getElementById('fortuneTitle');
+        const fortuneTextEl = document.getElementById('fortuneText');
+        const messageBoxModal = document.getElementById('messageBoxModal');
+        const messageTextEl = document.getElementById('messageText');
+        const confirmDialogModal = document.getElementById('confirmDialogModal');
+        const confirmTextEl = document.getElementById('confirmText');
+        const confirmYesBtn = document.getElementById('confirmYesBtn');
+        const confirmNoBtn = document.getElementById('confirmNoBtn');
+
+
+        // --- Character Selection ---
+        function toggleCharacterSelection(element) {
+            element.classList.toggle('selected');
+            // Simple visual feedback, actual selection logic is in startGame
+        }
+
+        // --- Game Initialization ---
+        function startGame() {
+            const selectedOptions = document.querySelectorAll('.character-option.selected');
+            if (selectedOptions.length < 2 || selectedOptions.length > 6) {
+                showModal('messageBoxModal', '請選擇 2 至 6 位角色！');
+                return;
+            }
+
+            gameState.players = [];
+            selectedOptions.forEach((option, index) => {
+                const charType = option.dataset.character;
+                const charInfo = characterData[charType];
+                if (charInfo) {
+                    const player = {
+                        id: index,
+                        name: charInfo.name,
+                        icon: charInfo.icon,
+                        color: charInfo.color,
+                        position: 0,
+                        money: 1000, // Initial money
+                        properties: [], // Array of board indices
+                        character: charType,
+                        skill: charInfo.skill,
+                        skipTurn: false,
+                        hasUsedSkill: {} // For skills that are once per game or conditional
+                    };
+                    if (charInfo.skill === 'oneTimeImmunity') {
+                        gameState.playerImmunity[player.id] = true; // Grant initial immunity
+                    }
+                    gameState.players.push(player);
+                }
+            });
+
+            gameState.currentPlayerIndex = 0;
+            gameState.gameRunning = true;
+            gameState.diceRolledThisTurn = false;
+            gameState.playerImmunity = {}; // Reset immunity
+            gameState.players.forEach(p => { // Apply initial immunity for taro character
+                if (p.skill === 'oneTimeImmunity') gameState.playerImmunity[p.id] = true;
+            });
+
+
+            characterSelectDiv.style.display = 'none';
+            gameAreaDiv.style.display = 'block';
+
+            createBoard();
+            updatePlayerInfo();
+            placePlayersOnBoard();
+            updateActivePlayerHighlight();
+            rollBtn.disabled = false;
+            endTurnBtn.style.display = 'none';
+            showModal('messageBoxModal', `遊戲開始！輪到 ${getCurrentPlayer().name} (${getCurrentPlayer().icon})。`);
+        }
+
+        // --- Board Creation ---
+        function createBoard() {
+            boardDiv.innerHTML = ''; // Clear previous board
+            gameState.boardCells = []; // Clear cell references
+
+            const numCells = boardLayout.length;
+            const sideLength = Math.ceil(numCells / 4) + 1; // e.g., 28 cells -> 7+1 = 8 cells per side (approx)
+                                                            // For a 9x9 grid, this logic needs to be more robust or fixed.
+                                                            // Given the 9x9 grid CSS, we'll map to perimeter.
+
+            // Perimeter mapping for a 9x9 grid (8 cells per side of the outer ring)
+            // Total 32 cells for outer ring if corners are distinct, or 28 if corners are shared.
+            // The boardLayout has 28 cells, which fits a typical Monopoly style perimeter.
+            // Grid positions: Top (0,0 to 0,8), Right (1,8 to 8,8), Bottom (8,7 to 8,0), Left (7,0 to 1,0)
+
+            for (let i = 0; i < numCells; i++) {
+                const cellData = boardLayout[i];
+                const cellElement = document.createElement('div');
+                cellElement.className = `board-cell ${cellData.type}`;
+                if (cellData.flavor) {
+                    cellElement.classList.add(cellData.flavor);
+                }
+
+                // Calculate grid position (example for a 9x9 grid perimeter)
+                let row, col;
+                if (i < 8) { // Top row (0-7)
+                    row = 1; col = i + 1;
+                } else if (i < 15) { // Right column (8-14)
+                    row = (i - 8) + 2; col = 9;
+                } else if (i < 22) { // Bottom row (15-21)
+                    row = 9; col = 9 - ((i - 15) + 1);
+                } else { // Left column (22-27)
+                    row = 9 - ((i - 22) + 1); col = 1;
+                }
+
+                cellElement.style.gridColumn = col;
+                cellElement.style.gridRow = row;
+
+                let cellHTML = `<div style="font-size: 1.5em;">${cellData.icon}</div>
+                                <div style="font-size: 0.8em; font-weight: bold;">${cellData.name}</div>`;
+                if (cellData.price) {
+                    cellHTML += `<div style="font-size: 0.7em;">$${cellData.price}</div>`;
+                }
+                cellElement.innerHTML = cellHTML;
+                cellElement.dataset.position = i;
+
+                // Add owner indicator div
+                const ownerIndicator = document.createElement('div');
+                ownerIndicator.className = 'owner-indicator';
+                ownerIndicator.style.cssText = 'width: 100%; height: 5px; position: absolute; bottom: 0; left: 0; background-color: transparent;';
+                cellElement.appendChild(ownerIndicator);
+
+                if (cellData.type === 'property') {
+                    cellElement.addEventListener('click', () => handlePropertyCellClick(i));
+                }
+                // Add other event listeners if needed (e.g., for special cells)
+
+                boardDiv.appendChild(cellElement);
+                gameState.boardCells.push(cellElement);
+            }
+
+            // Create central spin cell (if your design includes it)
+            const spinCell = document.createElement('div');
+            spinCell.className = 'board-cell spin-cell'; // Uses existing styles
+            spinCell.innerHTML = `
+                <div class="spin-wheel" id="spinWheelElement"></div>
+                <div style="position: relative; z-index: 2; cursor: pointer;" onclick="handleSpinWheelClick()">🎯<br>SPIN</div>
+            `;
+            // spinCell.addEventListener('click', handleSpinWheelClick); // Added directly to inner div
+            boardDiv.appendChild(spinCell);
+        }
+
+        function updatePropertyOwnerVisuals() {
+            gameState.boardCells.forEach((cellElement, index) => {
+                const cellData = boardLayout[index];
+                if (cellData.type === 'property') {
+                    const ownerIndicator = cellElement.querySelector('.owner-indicator');
+                    const owner = gameState.players.find(p => p.properties.includes(index));
+                    if (owner) {
+                        const playerColor = getComputedStyle(document.querySelector(`.${owner.color}`)).backgroundColor;
+                        ownerIndicator.style.backgroundColor = playerColor;
+                    } else {
+                        ownerIndicator.style.backgroundColor = 'transparent';
+                    }
+                }
+            });
+        }
+
+
+        // --- Player Info and Pieces ---
+        function updatePlayerInfo() {
+            playerInfoDiv.innerHTML = '';
+            gameState.players.forEach(player => {
+                const card = document.createElement('div');
+                card.className = `player-card ${player.id === getCurrentPlayer().id ? 'active' : ''}`;
+                card.innerHTML = `
+                    <div class="player-name">${player.icon} ${player.name}</div>
+                    <div classs="player-stats">
+                        金幣: $${player.money}<br>
+                        位置: ${boardLayout[player.position].name}<br>
+                        地產: ${player.properties.length} (${player.properties.map(p => boardLayout[p].name).join(', ') || '無'})<br>
+                        ${gameState.playerImmunity[player.id] ? '<span style="color: green; font-weight: bold;">香包護體中</span><br>' : ''}
+                        ${player.skipTurn ? '<span style="color: red; font-weight: bold;">暫停一回合</span>' : ''}
+                    </div>
+                `;
+                playerInfoDiv.appendChild(card);
+            });
+        }
+
+        function placePlayersOnBoard() {
+            document.querySelectorAll('.player-piece').forEach(p => p.remove()); // Clear old pieces
+
+            gameState.players.forEach((player, index) => {
+                const cellElement = gameState.boardCells[player.position];
+                if (cellElement) {
+                    const piece = document.createElement('div');
+                    piece.className = `player-piece ${player.color}`;
+                    piece.innerHTML = player.icon;
+                    // Offset pieces if multiple are on the same cell
+                    const playersOnSameCell = gameState.players.filter(p => p.position === player.position);
+                    const pieceIndexOnCell = playersOnSameCell.findIndex(p => p.id === player.id);
+
+                    const offsets = [ // Define offsets for multiple players on a cell
+                        { top: '5px', left: '5px' }, { top: '5px', right: '5px' },
+                        { bottom: '5px', left: '5px' }, { bottom: '5px', right: '5px' },
+                        { top: '50%', left: '5px', transform: 'translateY(-50%)' },
+                        { top: '50%', right: '5px', transform: 'translateY(-50%)' }
+                    ];
+
+                    if (pieceIndexOnCell < offsets.length) {
+                        Object.assign(piece.style, offsets[pieceIndexOnCell]);
+                    } else { // Default if more than 6, though unlikely with small pieces
+                        piece.style.top = `${5 + pieceIndexOnCell * 3}px`;
+                        piece.style.left = `${5 + pieceIndexOnCell * 3}px`;
+                    }
+
+                    cellElement.appendChild(piece);
+                }
+            });
+        }
+
+        function updateActivePlayerHighlight() {
+            const cards = playerInfoDiv.querySelectorAll('.player-card');
+            cards.forEach((card, index) => {
+                if (index === gameState.currentPlayerIndex) {
+                    card.classList.add('active');
+                } else {
+                    card.classList.remove('active');
+                }
+            });
+            rollBtn.disabled = gameState.diceRolledThisTurn || getCurrentPlayer().skipTurn;
+            endTurnBtn.style.display = (gameState.diceRolledThisTurn && !getCurrentPlayer().skipTurn) ? 'inline-block' : 'none';
+
+            if (getCurrentPlayer().skipTurn) {
+                 showModal('messageBoxModal', `${getCurrentPlayer().name} (${getCurrentPlayer().icon}) 本回合暫停。`);
+                 setTimeout(nextTurn, 1500); // Automatically go to next turn
+            }
+        }
+
+        // --- Game Actions (Dice, Movement) ---
+        function rollDice() {
+            if (!gameState.gameRunning || gameState.diceRolledThisTurn || getCurrentPlayer().skipTurn) return;
+
+            diceDiv.classList.add('rolling');
+            rollBtn.disabled = true;
+
+            setTimeout(() => {
+                diceDiv.classList.remove('rolling');
+                const roll1 = Math.floor(Math.random() * 6) + 1;
+                // const roll2 = Math.floor(Math.random() * 6) + 1; // For two dice
+                // const totalRoll = roll1 + roll2;
+                const totalRoll = roll1; // Single die for now
+                diceDiv.textContent = totalRoll;
+
+                gameState.diceRolledThisTurn = true;
+                movePlayerSteps(totalRoll, true); // Pass true to indicate it's a dice roll move
+                endTurnBtn.style.display = 'inline-block';
+
+            }, 700); // Animation time
+        }
+
+        function movePlayerSteps(steps, isDiceRoll) {
+            const player = getCurrentPlayer();
+            const oldPosition = player.position;
+            player.position = (player.position + steps + boardLayout.length) % boardLayout.length; // Ensure positive result for backward movement
+
+            if (isDiceRoll) { // Only grant money for passing Go on a dice roll, not special moves
+                 if (steps > 0 && player.position < oldPosition) { // Passed Go (forward movement)
+                    player.money += 200; // Standard "Pass Go" amount
+                    showModal('messageBoxModal', `${player.name} 經過起點！獲得 $200！`);
+                }
+            }
+
+            placePlayersOnBoard();
+            // Delay landing action to allow piece movement to be seen
+            setTimeout(() => {
+                 handleLanding();
+                 updatePlayerInfo(); // Update info after landing actions
+            }, 500); // Adjust delay as needed
+        }
+
+        // --- Landing Logic ---
+        function handleLanding() {
+            const player = getCurrentPlayer();
+            const cellData = boardLayout[player.position];
+            showModal('messageBoxModal', `${player.name} (${player.icon}) 抵達 ${cellData.name}`);
+
+            setTimeout(() => { // Add a small delay for the message to be read
+                switch (cellData.type) {
+                    case 'property':
+                        handlePropertyLanding(player, cellData, player.position);
+                        break;
+                    case 'fortune':
+                        drawFortuneCard();
+                        break;
+                    case 'special':
+                        handleSpecialCell(player, cellData);
+                        break;
+                    case 'spin':
+                        showModal('messageBoxModal', `${player.name} 抵達轉盤！點擊中央轉盤開始。`);
+                        // Actual spin is triggered by clicking the wheel
+                        break;
+                    case 'start':
+                        // Nothing special happens on landing on start, already handled by passing.
+                        break;
+                }
+                updatePlayerInfo(); // Update info after any actions
+                updatePropertyOwnerVisuals();
+            }, 1500);
+        }
+
+        function handlePropertyLanding(player, propertyData, propertyIndex) {
+            const owner = gameState.players.find(p => p.properties.includes(propertyIndex));
+
+            if (owner) {
+                if (owner.id === player.id) {
+                    showModal('messageBoxModal', `你已經擁有 ${propertyData.name}。`);
+                    // Option to upgrade property could be added here
+                } else {
+                    let rent = propertyData.rent;
+                    // Apply rent boost skill if owner has it
+                    if (characterData[owner.character]?.skill === 'rentBoost') {
+                        rent += 5; // Rent boost amount from black rice zongzi
+                         showModal('messageBoxModal', `${owner.name} (${owner.icon}) 的黑米粽技能發動，租金增加!`);
+                    }
+
+                    if (handleNegativeEvent(player, () => { player.money -= rent; owner.money += rent; })) {
+                         showModal('messageBoxModal', `支付 $${rent} 租金給 ${owner.name} (${owner.icon})。`);
+                    }
+                    checkBankrupt(player);
+                }
+            } else { // Property is unowned
+                let purchasePrice = propertyData.price;
+                // Apply quick upgrade skill if buyer has it (reduces purchase price)
+                if (player.skill === 'quickUpgrade') {
+                    purchasePrice = Math.max(0, purchasePrice - 10); // Discount from egg zongzi
+                    showModal('messageBoxModal', `${player.name} (${player.icon}) 的鹹蛋粽技能發動，購買價格減少10金幣!`);
+                }
+
+                if (player.money >= purchasePrice) {
+                    showConfirmDialog(
+                        `要購買 ${propertyData.name} 嗎？\n價格：$${purchasePrice} (租金：$${propertyData.rent})`,
+                        () => { // Yes callback
+                            player.money -= purchasePrice;
+                            player.properties.push(propertyIndex);
+                            showModal('messageBoxModal', `成功購買 ${propertyData.name}！`);
+                            updatePlayerInfo();
+                            updatePropertyOwnerVisuals();
+                        },
+                        () => { // No callback
+                            showModal('messageBoxModal', `你決定不購買 ${propertyData.name}。`);
+                        }
+                    );
+                } else {
+                    showModal('messageBoxModal', `你的金幣不足以購買 ${propertyData.name} ($${purchasePrice})。`);
+                }
+            }
+        }
+
+        function handlePropertyCellClick(propertyIndex) {
+            const player = getCurrentPlayer();
+            const propertyData = boardLayout[propertyIndex];
+
+            if (player.position !== propertyIndex || !gameState.diceRolledThisTurn) {
+                // If not current player's turn or not on the cell, just show info.
+                const owner = gameState.players.find(p => p.properties.includes(propertyIndex));
+                let infoMsg = `${propertyData.name} (${propertyData.flavor || ''}粽)\n價格: $${propertyData.price}, 租金: $${propertyData.rent}`;
+                if (owner) {
+                    infoMsg += `\n擁有者: ${owner.name} (${owner.icon})`;
+                } else {
+                    infoMsg += `\n無人擁有`;
+                }
+                showModal('messageBoxModal', infoMsg);
+                return;
+            }
+            // If it's the current player's turn and they are on the cell, re-trigger landing logic
+            // (e.g., if they decided not to buy earlier but now want to, or for other interactions)
+            // This might be redundant if all actions are handled immediately on landing.
+            // For now, we assume purchase/rent is handled on initial landing.
+        }
+
+
+        function drawFortuneCard() {
+            const player = getCurrentPlayer();
+            let cardToDraw = fortuneCards[Math.floor(Math.random() * fortuneCards.length)];
+
+            if (player.skill === 'doubleFortune' && !player.hasUsedSkill['doubleFortuneThisTurn']) {
+                const card1 = fortuneCards[Math.floor(Math.random() * fortuneCards.length)];
+                let card2 = fortuneCards[Math.floor(Math.random() * fortuneCards.length)];
+                while (card2 === card1) { // Ensure two different cards
+                    card2 = fortuneCards[Math.floor(Math.random() * fortuneCards.length)];
+                }
+
+                player.hasUsedSkill['doubleFortuneThisTurn'] = true; // Mark skill as used for this turn/instance
+
+                showConfirmDialog(
+                    `${player.name} (${player.icon}) 的綠豆粽技能發動！抽兩張粽運卡，請選擇一張：\n\n1. ${card1.title}: ${card1.text}\n\n2. ${card2.title}: ${card2.text}`,
+                    () => { // Chose card 1
+                        applyFortuneCard(player, card1);
+                    },
+                    () => { // Chose card 2
+                        applyFortuneCard(player, card2);
+                    },
+                    "選擇卡片1", "選擇卡片2"
+                );
+            } else {
+                applyFortuneCard(player, cardToDraw);
+            }
+        }
+
+        function applyFortuneCard(player, card) {
+            showModal('fortuneCardModal', card.text, card.title);
+
+            if (card.type === "negative") {
+                if (handleNegativeEvent(player, () => card.effect(player))) {
+                    // Effect applied
+                }
+            } else {
+                card.effect(player);
+            }
+            updatePlayerInfo();
+            checkBankrupt(player); // Check bankruptcy after card effect
+        }
+
+        function handleNegativeEvent(player, effectCallback) {
+            // Returns true if effect should be applied, false if immuned
+            if (gameState.playerImmunity[player.id]) {
+                showModal('messageBoxModal', `${player.name} (${player.icon}) 使用香包護體，免疫了此負面事件！`);
+                delete gameState.playerImmunity[player.id]; // Immunity is one-time
+                updatePlayerInfo();
+                return false; // Event immuned
+            }
+            effectCallback(); // Apply the negative effect
+            return true; // Event applied
+        }
+
+
+        function handleSpecialCell(player, cellData) {
+            switch (cellData.action) {
+                case 'gainMoney':
+                    player.money += cellData.amount;
+                    showModal('messageBoxModal', `${cellData.name}！你獲得了 $${cellData.amount}！`);
+                    break;
+                case 'payTax':
+                    const taxAmount = player.properties.length * cellData.amountPerProperty;
+                     if (handleNegativeEvent(player, () => { player.money -= taxAmount; })) {
+                        showModal('messageBoxModal', `${cellData.name}！你需要支付 $${taxAmount} 的稅金。`);
+                    }
+                    checkBankrupt(player);
+                    break;
+                case 'rest':
+                    showModal('messageBoxModal', `${cellData.name}！好好休息一下吧。`);
+                    // Could add a small bonus like +10 money or skip next negative event if desired
+                    break;
+                // Add other special cell types here
+            }
+        }
+
+        function handleSpinWheelClick() {
+            const player = getCurrentPlayer();
+            if (player.position !== boardLayout.findIndex(cell => cell.type === 'spin' && player.position === boardLayout.indexOf(cell)) || !gameState.diceRolledThisTurn) {
+                 showModal('messageBoxModal', '你必須先擲骰子並停在轉盤格子上才能轉動輪盤！');
+                return;
+            }
+
+            const wheel = document.getElementById('spinWheelElement');
+            if (!wheel) {
+                console.error("Spin wheel element not found!");
+                return;
+            }
+            if (wheel.classList.contains('spinning')) return; // Prevent multiple spins
+
+            wheel.classList.add('spinning');
+            const baseRotations = 3; // Spin at least 3 full times
+            const randomAngle = Math.random() * 360;
+            const totalRotation = (baseRotations * 360) + randomAngle;
+
+            wheel.style.transform = `rotate(${totalRotation}deg)`;
+
+            // Determine outcome based on final angle (6 segments, 60 deg each)
+            // conic-gradient(from 0deg, #FF6B6B 0deg 60deg (0), #4ECDC4 60deg 120deg (1), etc.)
+            // Angle mapping: 0-60: seg 0, 60-120: seg 1, ... 300-360: seg 5
+            const segmentAngle = 360 - (randomAngle % 360); // Angle from the "from 0deg" point
+            const segmentIndex = Math.floor(segmentAngle / 60) % 6;
+
+            const rewards = [
+                { text: '前進3格', effect: () => movePlayerSteps(3, false) },
+                { text: '獲得$200', effect: () => { player.money += 200; showModal('messageBoxModal', '轉盤獎勵：獲得 $200！'); } },
+                { text: '損失$100', effect: () => { if(handleNegativeEvent(player, () => player.money -= 100)){ showModal('messageBoxModal', '轉盤懲罰：損失 $100！'); checkBankrupt(player); }} },
+                { text: '抽一張粽運卡', effect: () => drawFortuneCard() },
+                { text: '免費升級一處地產 (若有)', effect: () => { /* TODO: Implement free upgrade */ showModal('messageBoxModal', '轉盤獎勵：免費升級 (待實現)！');} },
+                { text: '再轉一次', effect: () => { wheel.classList.remove('spinning'); handleSpinWheelClick(); } } // Recursive call for re-spin
+            ];
+
+            // Handle Sugar Zongzi skill: Sweet Spin
+            if (player.skill === 'sweetSpin' && !player.hasUsedSkill['sweetSpinThisTurn']) {
+                player.hasUsedSkill['sweetSpinThisTurn'] = true; // Mark skill used for this turn
+                // Spin a second time and let player choose
+                setTimeout(() => {
+                    wheel.classList.remove('spinning'); // Allow re-spin styling
+                    wheel.style.transition = 'none'; // Snap to new position for second virtual spin
+                    wheel.style.transform = 'rotate(0deg)'; // Reset visual
+
+                    setTimeout(() => { // Brief delay then "second spin"
+                        wheel.style.transition = 'transform 3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'; // Restore transition
+                        const randomAngle2 = Math.random() * 360;
+                        const totalRotation2 = (baseRotations * 360) + randomAngle2;
+                        // No visual spin for second, just calculate result
+                        const segmentAngle2 = 360 - (randomAngle2 % 360);
+                        const segmentIndex2 = Math.floor(segmentAngle2 / 60) % 6;
+
+                        let reward1 = rewards[segmentIndex];
+                        let reward2 = rewards[segmentIndex2];
+
+                        // Ensure two different rewards if possible for choice
+                        if (reward1.text === reward2.text && rewards.length > 1) {
+                            let newIndex2 = segmentIndex2;
+                            while(newIndex2 === segmentIndex || newIndex2 === segmentIndex2) { // find a different one
+                                newIndex2 = Math.floor(Math.random() * rewards.length);
+                            }
+                            reward2 = rewards[newIndex2];
+                        }
+
+
+                        showConfirmDialog(
+                            `${player.name} (${player.icon}) 的糖心粽技能發動！轉盤轉兩次，請選擇一個結果：\n\n1. ${reward1.text}\n\n2. ${reward2.text}`,
+                            () => { // Chose reward 1
+                                showModal('messageBoxModal', `轉盤結果：${reward1.text}`);
+                                reward1.effect();
+                                updatePlayerInfo();
+                                wheel.classList.remove('spinning'); // Ensure class is removed
+                            },
+                            () => { // Chose reward 2
+                                showModal('messageBoxModal', `轉盤結果：${reward2.text}`);
+                                reward2.effect();
+                                updatePlayerInfo();
+                                wheel.classList.remove('spinning'); // Ensure class is removed
+                            },
+                            "選擇結果1", "選擇結果2"
+                        );
+                    }, 100);
+                }, 3100); // After first spin animation
+            } else {
+                 // Standard single spin result
+                setTimeout(() => {
+                    const reward = rewards[segmentIndex];
+                    showModal('messageBoxModal', `轉盤結果：${reward.text}`);
+                    reward.effect();
+                    updatePlayerInfo();
+                    wheel.classList.remove('spinning');
+                }, 3100); // After animation (3s) + small buffer
+            }
+        }
+
+
+        // --- Game Flow (Turns, End Game) ---
+        function nextTurn() {
+            const currentPlayer = getCurrentPlayer();
+            if (currentPlayer.skipTurn) {
+                currentPlayer.skipTurn = false; // Reset for next round
+            }
+
+            // Reset turn-specific skill usage
+            if (currentPlayer.hasUsedSkill) {
+                currentPlayer.hasUsedSkill['doubleFortuneThisTurn'] = false;
+                currentPlayer.hasUsedSkill['sweetSpinThisTurn'] = false;
+            }
+
+
+            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+            gameState.diceRolledThisTurn = false;
+
+            updatePlayerInfo();
+            updateActivePlayerHighlight();
+            showModal('messageBoxModal', `輪到 ${getCurrentPlayer().name} (${getCurrentPlayer().icon})。`);
+
+            // Check for game over conditions (e.g., only one player left)
+            const activePlayers = gameState.players.filter(p => p.money > -500); // Allow some debt
+            if (activePlayers.length <= 1 && gameState.players.length > 1) {
+                gameOver(activePlayers[0]);
+                return;
+            }
+        }
+
+        function checkBankrupt(player) {
+            if (player.money < 0) {
+                // Allow some debt, or implement selling properties
+                showModal('messageBoxModal', `${player.name} (${player.icon}) 的金幣為負數了！如果無法在下一輪前變正，可能會破產！`);
+                if (player.money < -200) { // Arbitrary bankruptcy threshold
+                    showModal('messageBoxModal', `${player.name} (${player.icon}) 嚴重負債，已破產！`);
+                    player.properties.forEach(propIndex => {
+                        // Return properties to unowned, or auction them
+                        const cellElement = gameState.boardCells[propIndex];
+                        const ownerIndicator = cellElement.querySelector('.owner-indicator');
+                        ownerIndicator.style.backgroundColor = 'transparent';
+                    });
+                    player.properties = [];
+                    player.money = 0; // Or mark as out of game
+                    // Consider removing player or marking as inactive
+                    // For now, they just lose properties and can't do much
+                    // Check if this leads to game over
+                    const activePlayers = gameState.players.filter(p => p.money > -500);
+                    if (activePlayers.length <= 1 && gameState.players.length > 1) {
+                        gameOver(activePlayers[0]);
+                    }
+                }
+            }
+        }
+
+        function gameOver(winner) {
+            gameState.gameRunning = false;
+            rollBtn.disabled = true;
+            endTurnBtn.style.display = 'none';
+            let message = "遊戲結束！";
+            if (winner) {
+                message += `\n🎉 恭喜 ${winner.name} (${winner.icon}) 獲勝！ 🎉`;
+            } else {
+                message += "\n沒有明確的贏家。";
+            }
+            showModal('messageBoxModal', message);
+            // Option to show final scores or a reset button more prominently
+        }
+
+        function confirmResetGame() {
+             showConfirmDialog(
+                '確定要重新開始遊戲嗎？所有進度將會遺失。',
+                () => { // Yes callback
+                    resetGame();
+                },
+                () => { // No callback
+                    closeModal('confirmDialogModal');
+                }
+            );
+        }
+
+        function resetGame() {
+            // Simpler reset: just reload the page
+            location.reload();
+        }
+
+
+        // --- Utility and Modal Functions ---
+        function getCurrentPlayer() {
+            return gameState.players[gameState.currentPlayerIndex];
+        }
+
+        function showModal(modalId, textContent, titleContent) {
+            const modal = document.getElementById(modalId);
+            overlay.classList.add('show');
+            modal.classList.add('show');
+
+            if (modalId === 'fortuneCardModal' && titleContent) {
+                fortuneTitleEl.textContent = titleContent;
+                fortuneTextEl.textContent = textContent;
+            } else if (modalId === 'messageBoxModal') {
+                messageTextEl.textContent = textContent;
+            } else if (modalId === 'confirmDialogModal') {
+                // This one is handled by showConfirmDialog
+            }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+            // Only hide overlay if no other modals are shown (more robust check needed if multiple can stack)
+            const anyModalShown = document.querySelector('.fortune-card.show, .message-box.show, .confirm-dialog.show');
+            if (!anyModalShown) {
+                overlay.classList.remove('show');
+            }
+        }
+
+        function showConfirmDialog(text, yesCallback, noCallback, yesText = "確定", noText = "取消") {
+            confirmTextEl.textContent = text;
+            confirmYesBtn.textContent = yesText;
+            confirmNoBtn.textContent = noText;
+
+            // Clone and replace buttons to remove old event listeners
+            const newYesBtn = confirmYesBtn.cloneNode(true);
+            confirmYesBtn.parentNode.replaceChild(newYesBtn, confirmYesBtn);
+            confirmYesBtn = newYesBtn; // Update reference
+
+            const newNoBtn = confirmNoBtn.cloneNode(true);
+            confirmNoBtn.parentNode.replaceChild(newNoBtn, confirmNoBtn);
+            confirmNoBtn = newNoBtn; // Update reference
+
+            confirmYesBtn.onclick = () => {
+                closeModal('confirmDialogModal');
+                if (yesCallback) yesCallback();
+            };
+            confirmNoBtn.onclick = () => {
+                closeModal('confirmDialogModal');
+                if (noCallback) noCallback();
+            };
+            showModal('confirmDialogModal');
+        }
+
+
+        // Event listener for ESC key to close modals
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                if (fortuneCardModal.classList.contains('show')) closeModal('fortuneCardModal');
+                else if (messageBoxModal.classList.contains('show')) closeModal('messageBoxModal');
+                else if (confirmDialogModal.classList.contains('show')) closeModal('confirmDialogModal');
+            }
+        });
+
+        // Initial setup or event listeners that run once
+        document.addEventListener('DOMContentLoaded', () => {
+            // Any setup needed after the DOM is fully loaded but before game starts
+            // For example, if character icons or names were dynamic.
+        });
+
+    </script>
+</body>
+</html>
