@@ -250,6 +250,12 @@
             transform: translateY(-2px);
         }
 
+        .player-card.bankrupt {
+            opacity: 0.55;
+            filter: grayscale(0.6);
+            border-style: dashed;
+        }
+
         .player-name {
             font-weight: bold;
             margin-bottom: 5px;
@@ -567,6 +573,7 @@
             boardCells: [], // Will store cell DOM elements
             gameRunning: false,
             diceRolledThisTurn: false,
+            pendingMoves: 0, // # of move/landing chains still resolving; gates the End Turn button
             playerImmunity: {} // Stores immunity status for players e.g. {0: true} for player 0
         };
 
@@ -578,7 +585,7 @@
             { title: "粽界偶像徵選", text: "恭喜！你在粽界偶像徵選中脫穎而出，人氣爆棚，前進3格！", effect: (player) => { movePlayerSteps(3, false); }, type: "positive" },
             { title: "遇見粽仙", text: "奇遇！神秘的粽仙現身，賜予你200金幣的祝福！", effect: (player) => { player.money += 200; }, type: "positive" },
             { title: "祖傳香包護體", text: "幸運符！你發現一個祖傳香包，下次可免疫一次負面事件。", effect: (player) => { gameState.playerImmunity[player.id] = true; }, type: "positive" },
-            { title: "家廟春祭建醮日", text: "大日子！家廟舉辦春祭建醮，所有其他玩家都要給你30金幣紅包！", effect: (player) => { gameState.players.forEach(p => { if (p.id !== player.id) { p.money -= 30; player.money += 30; checkBankrupt(p);} }); }, type: "positive" },
+            { title: "家廟春祭建醮日", text: "大日子！家廟舉辦春祭建醮，所有其他玩家都要給你30金幣紅包！", effect: (player) => { gameState.players.forEach(p => { if (p.id !== player.id && !p.bankrupt) { p.money -= 30; player.money += 30; checkBankrupt(p);} }); }, type: "positive" },
             { title: "龍船水濺災星降", text: "真倒楣！被龍舟競賽濺起的水花淋濕，衰神附體，後退2格。", effect: (player) => { movePlayerSteps(-2, false); }, type: "negative" }
         ];
 
@@ -641,8 +648,8 @@
         const messageTextEl = document.getElementById('messageText');
         const confirmDialogModal = document.getElementById('confirmDialogModal');
         const confirmTextEl = document.getElementById('confirmText');
-        const confirmYesBtn = document.getElementById('confirmYesBtn');
-        const confirmNoBtn = document.getElementById('confirmNoBtn');
+        let confirmYesBtn = document.getElementById('confirmYesBtn');
+        let confirmNoBtn = document.getElementById('confirmNoBtn');
 
 
         // --- Character Selection ---
@@ -675,6 +682,7 @@
                         character: charType,
                         skill: charInfo.skill,
                         skipTurn: false,
+                        bankrupt: false, // Eliminated from the game once true
                         hasUsedSkill: {} // For skills that are once per game or conditional
                     };
                     if (charInfo.skill === 'oneTimeImmunity') {
@@ -687,6 +695,7 @@
             gameState.currentPlayerIndex = 0;
             gameState.gameRunning = true;
             gameState.diceRolledThisTurn = false;
+            gameState.pendingMoves = 0;
             gameState.playerImmunity = {}; // Reset immunity
             gameState.players.forEach(p => { // Apply initial immunity for taro character
                 if (p.skill === 'oneTimeImmunity') gameState.playerImmunity[p.id] = true;
@@ -799,17 +808,25 @@
             playerInfoDiv.innerHTML = '';
             gameState.players.forEach(player => {
                 const card = document.createElement('div');
-                card.className = `player-card ${player.id === getCurrentPlayer().id ? 'active' : ''}`;
-                card.innerHTML = `
-                    <div class="player-name">${player.icon} ${player.name}</div>
-                    <div classs="player-stats">
-                        金幣: $${player.money}<br>
-                        位置: ${boardLayout[player.position].name}<br>
-                        地產: ${player.properties.length} (${player.properties.map(p => boardLayout[p].name).join(', ') || '無'})<br>
-                        ${gameState.playerImmunity[player.id] ? '<span style="color: green; font-weight: bold;">香包護體中</span><br>' : ''}
-                        ${player.skipTurn ? '<span style="color: red; font-weight: bold;">暫停一回合</span>' : ''}
-                    </div>
-                `;
+                const activeClass = (!player.bankrupt && player.id === getCurrentPlayer().id) ? 'active' : '';
+                card.className = `player-card ${activeClass} ${player.bankrupt ? 'bankrupt' : ''}`.trim();
+                if (player.bankrupt) {
+                    card.innerHTML = `
+                        <div class="player-name">${player.icon} ${player.name}</div>
+                        <div class="player-stats"><span style="color: #b71c1c; font-weight: bold;">💀 已破產出局</span></div>
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <div class="player-name">${player.icon} ${player.name}</div>
+                        <div class="player-stats">
+                            金幣: $${player.money}<br>
+                            位置: ${boardLayout[player.position].name}<br>
+                            地產: ${player.properties.length} (${player.properties.map(p => boardLayout[p].name).join(', ') || '無'})<br>
+                            ${gameState.playerImmunity[player.id] ? '<span style="color: green; font-weight: bold;">香包護體中</span><br>' : ''}
+                            ${player.skipTurn ? '<span style="color: red; font-weight: bold;">暫停一回合</span>' : ''}
+                        </div>
+                    `;
+                }
                 playerInfoDiv.appendChild(card);
             });
         }
@@ -881,13 +898,18 @@
 
                 gameState.diceRolledThisTurn = true;
                 movePlayerSteps(totalRoll, true); // Pass true to indicate it's a dice roll move
-                endTurnBtn.style.display = 'inline-block';
+                // End Turn is revealed by handleLanding once the move fully resolves,
+                // so the player can't end the turn mid-move and leak timers into the next turn.
 
             }, 700); // Animation time
         }
 
         function movePlayerSteps(steps, isDiceRoll) {
             const player = getCurrentPlayer();
+            // A move is now in flight: keep End Turn hidden until it fully resolves.
+            gameState.pendingMoves++;
+            endTurnBtn.style.display = 'none';
+
             const oldPosition = player.position;
             player.position = (player.position + steps + boardLayout.length) % boardLayout.length; // Ensure positive result for backward movement
 
@@ -899,16 +921,16 @@
             }
 
             placePlayersOnBoard();
-            // Delay landing action to allow piece movement to be seen
+            // Delay landing action to allow piece movement to be seen.
+            // Bind to `player` so a leaked timer can never act on the next player's turn.
             setTimeout(() => {
-                 handleLanding();
+                 handleLanding(player);
                  updatePlayerInfo(); // Update info after landing actions
             }, 500); // Adjust delay as needed
         }
 
         // --- Landing Logic ---
-        function handleLanding() {
-            const player = getCurrentPlayer();
+        function handleLanding(player) {
             const cellData = boardLayout[player.position];
             showModal('messageBoxModal', `${player.name} (${player.icon}) 抵達 ${cellData.name}`);
 
@@ -933,6 +955,14 @@
                 }
                 updatePlayerInfo(); // Update info after any actions
                 updatePropertyOwnerVisuals();
+
+                // This move chain is done. Only reveal End Turn when no moves remain
+                // pending (covers fortune/spin cascades) and the turn hasn't ended.
+                gameState.pendingMoves = Math.max(0, gameState.pendingMoves - 1);
+                if (gameState.pendingMoves === 0 && gameState.gameRunning &&
+                    getCurrentPlayer() && getCurrentPlayer().id === player.id) {
+                    endTurnBtn.style.display = 'inline-block';
+                }
             }, 1500);
         }
 
@@ -1193,45 +1223,52 @@
                 currentPlayer.hasUsedSkill['sweetSpinThisTurn'] = false;
             }
 
+            // End the game if only one player is left standing.
+            if (checkGameOver()) return;
 
-            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+            // Advance to the next player who is still in the game (skip the bankrupt).
+            let nextIndex = gameState.currentPlayerIndex;
+            do {
+                nextIndex = (nextIndex + 1) % gameState.players.length;
+            } while (gameState.players[nextIndex].bankrupt);
+            gameState.currentPlayerIndex = nextIndex;
             gameState.diceRolledThisTurn = false;
 
             updatePlayerInfo();
             updateActivePlayerHighlight();
             showModal('messageBoxModal', `輪到 ${getCurrentPlayer().name} (${getCurrentPlayer().icon})。`);
+        }
 
-            // Check for game over conditions (e.g., only one player left)
-            const activePlayers = gameState.players.filter(p => p.money > -500); // Allow some debt
-            if (activePlayers.length <= 1 && gameState.players.length > 1) {
-                gameOver(activePlayers[0]);
-                return;
+        function checkGameOver() {
+            const survivors = gameState.players.filter(p => !p.bankrupt);
+            if (gameState.players.length > 1 && survivors.length <= 1) {
+                gameOver(survivors[0]);
+                return true;
             }
+            return false;
         }
 
         function checkBankrupt(player) {
-            if (player.money < 0) {
-                // Allow some debt, or implement selling properties
-                showModal('messageBoxModal', `${player.name} (${player.icon}) 的金幣為負數了！如果無法在下一輪前變正，可能會破產！`);
-                if (player.money < -200) { // Arbitrary bankruptcy threshold
-                    showModal('messageBoxModal', `${player.name} (${player.icon}) 嚴重負債，已破產！`);
-                    player.properties.forEach(propIndex => {
-                        // Return properties to unowned, or auction them
-                        const cellElement = gameState.boardCells[propIndex];
-                        const ownerIndicator = cellElement.querySelector('.owner-indicator');
-                        ownerIndicator.style.backgroundColor = 'transparent';
-                    });
-                    player.properties = [];
-                    player.money = 0; // Or mark as out of game
-                    // Consider removing player or marking as inactive
-                    // For now, they just lose properties and can't do much
-                    // Check if this leads to game over
-                    const activePlayers = gameState.players.filter(p => p.money > -500);
-                    if (activePlayers.length <= 1 && gameState.players.length > 1) {
-                        gameOver(activePlayers[0]);
-                    }
+            if (player.bankrupt || player.money >= 0) return;
+
+            // The player cannot cover what they owe -> bankrupt and out of the game.
+            player.bankrupt = true;
+            player.money = 0;
+
+            // Release every property back to the bank.
+            player.properties.forEach(propIndex => {
+                const cellElement = gameState.boardCells[propIndex];
+                if (cellElement) {
+                    const ownerIndicator = cellElement.querySelector('.owner-indicator');
+                    if (ownerIndicator) ownerIndicator.style.backgroundColor = 'transparent';
                 }
-            }
+            });
+            player.properties = [];
+
+            showModal('messageBoxModal', `${player.name} (${player.icon}) 金幣不足，宣告破產，退出遊戲！`);
+            updatePlayerInfo();
+            updatePropertyOwnerVisuals();
+            checkGameOver();
         }
 
         function gameOver(winner) {
@@ -1253,10 +1290,8 @@
                 '確定要重新開始遊戲嗎？所有進度將會遺失。',
                 () => { // Yes callback
                     resetGame();
-                },
-                () => { // No callback
-                    closeModal('confirmDialogModal');
                 }
+                // No callback: the queue already dismisses the dialog on its own.
             );
         }
 
@@ -1271,53 +1306,89 @@
             return gameState.players[gameState.currentPlayerIndex];
         }
 
-        function showModal(modalId, textContent, titleContent) {
-            const modal = document.getElementById(modalId);
-            overlay.classList.add('show');
-            modal.classList.add('show');
+        // --- Modal Queue ---
+        // Every modal (message / fortune / confirm) is funnelled through one queue
+        // and shown one at a time, so a burst of showModal() calls in the same tick
+        // no longer overwrites each other — the player clicks through them in order.
+        let modalQueue = [];
+        let activeModalId = null;
 
-            if (modalId === 'fortuneCardModal' && titleContent) {
-                fortuneTitleEl.textContent = titleContent;
-                fortuneTextEl.textContent = textContent;
-            } else if (modalId === 'messageBoxModal') {
-                messageTextEl.textContent = textContent;
-            } else if (modalId === 'confirmDialogModal') {
-                // This one is handled by showConfirmDialog
+        function enqueueModal(entry) {
+            modalQueue.push(entry);
+            if (!activeModalId) displayNextModal();
+        }
+
+        function displayNextModal() {
+            if (activeModalId) return; // something is already on screen
+            if (modalQueue.length === 0) {
+                overlay.classList.remove('show');
+                return;
+            }
+
+            const entry = modalQueue.shift();
+            activeModalId = entry.modalId;
+            overlay.classList.add('show');
+
+            if (entry.kind === 'fortune') {
+                fortuneTitleEl.textContent = entry.title || '';
+                fortuneTextEl.textContent = entry.text || '';
+            } else if (entry.kind === 'confirm') {
+                confirmTextEl.textContent = entry.text || '';
+
+                // Clone the buttons to drop listeners left over from a previous dialog.
+                let newYesBtn = confirmYesBtn.cloneNode(true);
+                confirmYesBtn.parentNode.replaceChild(newYesBtn, confirmYesBtn);
+                confirmYesBtn = newYesBtn;
+                let newNoBtn = confirmNoBtn.cloneNode(true);
+                confirmNoBtn.parentNode.replaceChild(newNoBtn, confirmNoBtn);
+                confirmNoBtn = newNoBtn;
+
+                confirmYesBtn.textContent = entry.yesText;
+                confirmNoBtn.textContent = entry.noText;
+                confirmYesBtn.onclick = () => {
+                    hideActiveModal();
+                    if (entry.yesCallback) entry.yesCallback();
+                    displayNextModal();
+                };
+                confirmNoBtn.onclick = () => {
+                    hideActiveModal();
+                    if (entry.noCallback) entry.noCallback();
+                    displayNextModal();
+                };
+            } else { // 'message'
+                messageTextEl.textContent = entry.text || '';
+            }
+
+            document.getElementById(activeModalId).classList.add('show');
+        }
+
+        function hideActiveModal() {
+            if (!activeModalId) return;
+            document.getElementById(activeModalId).classList.remove('show');
+            activeModalId = null;
+        }
+
+
+        // --- Public Modal API (queued) ---
+        function showModal(modalId, textContent, titleContent) {
+            if (modalId === 'fortuneCardModal') {
+                enqueueModal({ modalId: 'fortuneCardModal', kind: 'fortune', title: titleContent, text: textContent });
+            } else {
+                enqueueModal({ modalId: 'messageBoxModal', kind: 'message', text: textContent });
             }
         }
 
         function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('show');
-            // Only hide overlay if no other modals are shown (more robust check needed if multiple can stack)
-            const anyModalShown = document.querySelector('.fortune-card.show, .message-box.show, .confirm-dialog.show');
-            if (!anyModalShown) {
-                overlay.classList.remove('show');
-            }
+            // Dismiss whatever is on screen and surface the next queued modal.
+            hideActiveModal();
+            displayNextModal();
         }
 
         function showConfirmDialog(text, yesCallback, noCallback, yesText = "確定", noText = "取消") {
-            confirmTextEl.textContent = text;
-            confirmYesBtn.textContent = yesText;
-            confirmNoBtn.textContent = noText;
-
-            // Clone and replace buttons to remove old event listeners
-            const newYesBtn = confirmYesBtn.cloneNode(true);
-            confirmYesBtn.parentNode.replaceChild(newYesBtn, confirmYesBtn);
-            confirmYesBtn = newYesBtn; // Update reference
-
-            const newNoBtn = confirmNoBtn.cloneNode(true);
-            confirmNoBtn.parentNode.replaceChild(newNoBtn, confirmNoBtn);
-            confirmNoBtn = newNoBtn; // Update reference
-
-            confirmYesBtn.onclick = () => {
-                closeModal('confirmDialogModal');
-                if (yesCallback) yesCallback();
-            };
-            confirmNoBtn.onclick = () => {
-                closeModal('confirmDialogModal');
-                if (noCallback) noCallback();
-            };
-            showModal('confirmDialogModal');
+            enqueueModal({
+                modalId: 'confirmDialogModal', kind: 'confirm',
+                text, yesText, noText, yesCallback, noCallback
+            });
         }
 
 
